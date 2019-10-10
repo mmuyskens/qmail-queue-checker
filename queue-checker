@@ -1,0 +1,24 @@
+#!/bin/bash
+
+QSTAT=/var/qmail/bin/qmail-qstat
+
+SUBJECT="Mail Queue for Server `hostname -f` is above 500"
+EMAIL="staff@company.com"
+EMAILMESSAGE="/tmp/emailmessage.txt"
+
+$QSTAT > ~/queue-list
+
+messages=`cat ~/queue-list  |grep "messages in queue:" | cut -d":" -f 2`
+
+if [ "$messages" -gt "500" ] || [ "$messages" -eq "500" ]
+then
+        echo -e  "Please check server `hostname -f` \nCurrent mail queue is: $messages \nPotential spammer on server" >> $EMAILMESSAGE
+        echo -e  "\n" >> $EMAILMESSAGE
+        /var/qmail/bin/qmail-qread | awk '{print $8}' | sed '/^$/d' | sort | uniq -c | sort -n | tr -d "<>" >> $EMAILMESSAGE
+		echo -e  "\n" >> $EMAILMESSAGE
+		echo -e  "------------ SMTP AUTH COUNT ------------" >> $EMAILMESSAGE
+        echo -e  "\n" >> $EMAILMESSAGE
+		cat /usr/local/psa/var/log/maillog |grep -I smtp_auth |grep -I user |awk '{print $8}' |sort |uniq -c |sort -n  >> $EMAILMESSAGE
+        /bin/mail -s "$SUBJECT" "$EMAIL" < $EMAILMESSAGE
+        rm -rf /tmp/emailmessage.txt
+fi
